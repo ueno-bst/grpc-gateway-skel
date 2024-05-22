@@ -38,7 +38,7 @@ func WithStatusPathHandle(endpoint string) GatewayOptionFunc {
 	}
 }
 
-func HealthCheckPathHandle(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+func HealthCheckPathHandle(w http.ResponseWriter, _ *http.Request, _ map[string]string) {
 	uptime := time.Since(startTime)
 
 	response := HealthCheckResponse{
@@ -56,7 +56,7 @@ func HealthCheckPathHandle(w http.ResponseWriter, r *http.Request, pathParams ma
 	}
 }
 
-func StatusCheckPathHandle(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+func StatusCheckPathHandle(w http.ResponseWriter, _ *http.Request, _ map[string]string) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
