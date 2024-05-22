@@ -3,6 +3,7 @@ package runtime
 import (
 	"compress/gzip"
 	"github.com/andybalholm/brotli"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
@@ -47,7 +48,13 @@ func GzipCompressHandler(handler http.Handler) http.Handler {
 
 		w.Header().Set("Content-Encoding", "gzip")
 		writer := gzip.NewWriter(w)
-		defer writer.Close()
+
+		defer func() {
+			if err := writer.Close(); err != nil {
+				logrus.Errorf("Error closing gzip writer: %v", err)
+			}
+		}()
+
 		wo := &gzipResponseWriter{Writer: writer, ResponseWriter: w}
 		handler.ServeHTTP(wo, r)
 	})
@@ -77,7 +84,13 @@ func BrotliCompressHandler(handler http.Handler) http.Handler {
 
 		w.Header().Set("Content-Encoding", "br")
 		writer := brotli.NewWriter(w)
-		defer writer.Close()
+
+		defer func() {
+			if err := writer.Close(); err != nil {
+				logrus.Errorf("Error closing brotli writer: %v", err)
+			}
+		}()
+
 		wo := &brotliResponseWriter{Writer: writer, ResponseWriter: w}
 		handler.ServeHTTP(wo, r)
 	})
