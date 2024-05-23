@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 )
 
 type GatewayHandler func(h http.Handler, o *GatewayOption) http.Handler
@@ -49,12 +50,6 @@ func (s ServerInfo) Valid() error {
 		return fmt.Errorf("invalid port number: %d", s.port)
 	}
 
-	ip := net.ParseIP(s.host)
-
-	if ip == nil {
-		return fmt.Errorf("invalid ip address: %s", s.host)
-	}
-
 	return nil
 }
 
@@ -67,7 +62,7 @@ func (s ServerInfo) ValidToString() (string, error) {
 }
 
 func (s ServerInfo) ToString() string {
-	return fmt.Sprintf("%s:%d", s.host, s.port)
+	return net.JoinHostPort(s.host, strconv.Itoa(int(s.port)))
 }
 
 type GatewayOption struct {
