@@ -1,3 +1,4 @@
 .idea/
 .vscode/
 qodana.yaml
+node_modules/
