@@ -320,7 +320,7 @@ func (o *GatewayOption) terminate() bool {
 // It registers the gRPC server backend, attaches the endpoints, and starts the server using http.ListenAndServe or http.ListenAndServeTLS.
 // It returns an error if any operation fails.
 func (o *GatewayOption) Start() error {
-	o.err.Infof("Gateway server starting on %s", o.server.ToString())
+	o.err.Infof("Gateway server starting on %s -> %s", o.server.ToString(), o.backend.ToString())
 
 	return o.run()
 }
@@ -329,7 +329,7 @@ func (o *GatewayOption) Start() error {
 // It returns the GatewayServer instance for method chaining.
 func (o *GatewayOption) Stop() GatewayServer {
 	if ok := o.terminate(); ok {
-		o.err.Infof("Gateway server stopping on %s", o.server.ToString())
+		o.err.Infof("Gateway server stopping on %s -> %s", o.server.ToString(), o.backend.ToString())
 	} else {
 		o.err.Infof("Gateway is stooped")
 	}
@@ -339,7 +339,7 @@ func (o *GatewayOption) Stop() GatewayServer {
 
 // Restart restarts the server by first stopping it using the Stop method and then starting it using the Start method.
 func (o *GatewayOption) Restart() error {
-	o.err.Infof("Gateway server restarting on %s", o.server.ToString())
+	o.err.Infof("Gateway server restarting on %s -> %s", o.server.ToString(), o.backend.ToString())
 	o.terminate()
 
 	return o.run()
