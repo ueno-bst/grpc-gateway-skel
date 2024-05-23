@@ -30,7 +30,7 @@ func (f *CommonLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 func CommonLogHandler(h http.Handler, o *GatewayOption) http.Handler {
-	o.logger.SetFormatter(&CommonLogFormatter{})
+	o.log.SetFormatter(&CommonLogFormatter{})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -47,7 +47,7 @@ func CommonLogHandler(h http.Handler, o *GatewayOption) http.Handler {
 			referer = "-"
 		}
 
-		entry := o.logger.WithFields(logrus.Fields{
+		entry := o.log.WithFields(logrus.Fields{
 			"remote_addr": r.RemoteAddr,
 			"method":      r.Method,
 			"url":         r.URL.String(),

@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"strings"
 )
 
 func WithAccessLogOutput(path string) GatewayOptionFunc {
@@ -23,7 +24,10 @@ func (o *GatewayOption) initLog() error {
 	aws := make([]io.Writer, 0)
 	ews := make([]io.Writer, 0)
 
-	o.logger = logrus.New()
+	o.log = logrus.New()
+	o.err = logrus.New()
+
+	o.err.SetFormatter(&errorLogFormatter{})
 
 	if o.logs.access != nil {
 		if file, err := os.OpenFile(*o.logs.access, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
@@ -34,7 +38,7 @@ func (o *GatewayOption) initLog() error {
 	}
 
 	if o.logs.error != nil {
-		if file, err := os.Create(*o.logs.error); err != nil {
+		if file, err := os.OpenFile(*o.logs.error, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
 			return fmt.Errorf("failed to open error log file %s for output: %s", *o.logs.error, err)
 		} else {
 			ews = append(ews, file)
@@ -46,42 +50,21 @@ func (o *GatewayOption) initLog() error {
 		ews = append(ews, os.Stderr)
 	}
 
-	o.logger.Hooks.Add(&outputHook{writer: io.MultiWriter(aws...)})
-	o.logger.Hooks.Add(&errorHook{writer: io.MultiWriter(ews...)})
+	o.log.SetOutput(io.MultiWriter(aws...))
+	o.err.SetOutput(io.MultiWriter(ews...))
 
 	return nil
 }
 
-type errorHook struct {
-	writer io.Writer
-}
+type errorLogFormatter struct{}
 
-func (h *errorHook) Levels() []logrus.Level {
-	return []logrus.Level{
-		logrus.DebugLevel,
-		logrus.WarnLevel,
-		logrus.ErrorLevel,
-		logrus.FatalLevel,
-		logrus.PanicLevel,
-	}
-}
+func (f *errorLogFormatter) Format(e *logrus.Entry) ([]byte, error) {
+	log := fmt.Sprintf(
+		"[%s] %s : %s\n",
+		e.Time.Format("02/Jan/2006:15:04:05 -0700"),
+		strings.ToTitle(e.Level.String()),
+		strings.TrimSpace(e.Message),
+	)
 
-func (h *errorHook) Fire(entry *logrus.Entry) error {
-	entry.Logger.Out = h.writer
-	return nil
-}
-
-type outputHook struct {
-	writer io.Writer
-}
-
-func (h *outputHook) Levels() []logrus.Level {
-	return []logrus.Level{
-		logrus.InfoLevel,
-	}
-}
-
-func (h *outputHook) Fire(entry *logrus.Entry) error {
-	entry.Logger.Out = h.writer
-	return nil
+	return []byte(log), nil
 }

@@ -6,6 +6,7 @@ require (
 	github.com/andybalholm/brotli v1.1.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.64.0
 )
@@ -16,7 +17,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.15.0 // indirect

@@ -58,12 +58,16 @@ func (s ServerInfo) Valid() error {
 	return nil
 }
 
-func (s ServerInfo) ToString() (string, error) {
+func (s ServerInfo) ValidToString() (string, error) {
 	if err := s.Valid(); err != nil {
 		return "", err
 	}
 
 	return fmt.Sprintf("%s:%d", s.host, s.port), nil
+}
+
+func (s ServerInfo) ToString() string {
+	return fmt.Sprintf("%s:%d", s.host, s.port)
 }
 
 type GatewayOption struct {
@@ -76,7 +80,8 @@ type GatewayOption struct {
 	silent    bool
 	ctx       *context.Context
 	logs      LogInfo
-	logger    *logrus.Logger
+	log       *logrus.Logger
+	err       *logrus.Logger
 }
 
 type GatewayOptionFunc func(*GatewayOption)
@@ -87,8 +92,8 @@ type GatewayServer interface {
 	Restart() error
 }
 
-func NewGateway(opts ...GatewayOptionFunc) GatewayOption {
-	o := GatewayOption{
+func NewGateway(opts ...GatewayOptionFunc) (*GatewayOption, error) {
+	o := &GatewayOption{
 		server:    ServerInfo{"0.0.0.0", 8081},
 		backend:   ServerInfo{"127.0.0.1", 8080},
 		endpoints: []GatewayEndpoint{},
@@ -99,10 +104,14 @@ func NewGateway(opts ...GatewayOptionFunc) GatewayOption {
 	}
 
 	for _, opt := range opts {
-		opt(&o)
+		opt(o)
 	}
 
-	return o
+	if err := o.initLog(); err != nil {
+		return nil, err
+	}
+
+	return o, nil
 }
 
 // WithServer is a GatewayOptionFunc that sets the host and port for the server.
@@ -219,7 +228,7 @@ func (o *GatewayOption) attachHandler(mux http.Handler) http.Handler {
 }
 
 func (o *GatewayOption) attachEndpoint(ctx context.Context, mux *runtime.ServeMux, opts []grpc.DialOption) error {
-	host, err := o.backend.ToString()
+	host, err := o.backend.ValidToString()
 
 	if err != nil {
 		return err
@@ -249,29 +258,16 @@ func (o *GatewayOption) attachPathHandle(mux *runtime.ServeMux) error {
 	return nil
 }
 
-// Start starts the server by creating a new context with cancel function and setting it to o.ctx.
-// It registers the gRPC server backend, attaches the endpoints, and starts the server using http.ListenAndServe or http.ListenAndServeTLS.
-// It returns an error if any operation fails.
-func (o *GatewayOption) Start() error {
+func (o *GatewayOption) run() error {
 	tls := o.tls
 
-	if err := o.initLog(); err != nil {
-		return err
-	}
-
-	host, err := o.server.ToString()
+	host, err := o.server.ValidToString()
 
 	if err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-
-	defer func() {
-		o.logger.Debugf("Gateway server stopping on %s\n", host)
-		cancel()
-	}()
 
 	o.ctx = &ctx
 
@@ -305,8 +301,6 @@ func (o *GatewayOption) Start() error {
 		return err
 	}
 
-	o.logger.Debugf("Gateway server starting on %s\n", host)
-
 	if tls != nil {
 		return http.ListenAndServeTLS(host, tls.cert, tls.key, handler)
 	}
@@ -314,15 +308,35 @@ func (o *GatewayOption) Start() error {
 	return http.ListenAndServe(host, handler)
 }
 
-// Stop stops the server by canceling the context and setting it to nil.
-// It returns the GatewayServer instance for method chaining.
-func (o *GatewayOption) Stop() GatewayServer {
+func (o *GatewayOption) terminate() bool {
 	if o.ctx != nil {
 		_, cancel := context.WithCancel(*o.ctx)
-
 		cancel()
 
 		o.ctx = nil
+
+		return true
+	}
+
+	return false
+}
+
+// Start starts the server by creating a new context with cancel function and setting it to o.ctx.
+// It registers the gRPC server backend, attaches the endpoints, and starts the server using http.ListenAndServe or http.ListenAndServeTLS.
+// It returns an error if any operation fails.
+func (o *GatewayOption) Start() error {
+	o.err.Infof("Gateway server starting on %s", o.server.ToString())
+
+	return o.run()
+}
+
+// Stop stops the server by canceling the context and setting it to nil.
+// It returns the GatewayServer instance for method chaining.
+func (o *GatewayOption) Stop() GatewayServer {
+	if ok := o.terminate(); ok {
+		o.err.Infof("Gateway server stopping on %s", o.server.ToString())
+	} else {
+		o.err.Infof("Gateway is stooped")
 	}
 
 	return o
@@ -330,5 +344,8 @@ func (o *GatewayOption) Stop() GatewayServer {
 
 // Restart restarts the server by first stopping it using the Stop method and then starting it using the Start method.
 func (o *GatewayOption) Restart() error {
-	return o.Stop().Start()
+	o.err.Infof("Gateway server restarting on %s", o.server.ToString())
+	o.terminate()
+
+	return o.run()
 }

@@ -51,7 +51,7 @@ func GzipCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
 
 		defer func() {
 			if err := writer.Close(); err != nil {
-				o.logger.Errorf("Error closing gzip writer: %v", err)
+				o.err.Errorf("Error closing gzip writer: %v", err)
 			}
 		}()
 
@@ -87,7 +87,7 @@ func BrotliCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
 
 		defer func() {
 			if err := writer.Close(); err != nil {
-				o.logger.Errorf("Error closing brotli writer: %v", err)
+				o.err.Errorf("Error closing brotli writer: %v", err)
 			}
 		}()
 
@@ -112,12 +112,12 @@ func DeflateCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
 		writer, err := flate.NewWriter(w, flate.BestCompression)
 
 		if err != nil {
-			o.logger.Errorf("Error creating flate writer: %v", err)
+			o.err.Errorf("Error creating flate writer: %v", err)
 		}
 
 		defer func() {
 			if err := writer.Close(); err != nil {
-				o.logger.Errorf("Error closing flate writer: %v", err)
+				o.err.Errorf("Error closing flate writer: %v", err)
 			}
 		}()
 
@@ -142,6 +142,8 @@ func (w *brotliResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
+// deflateResponseWriter is a type that wraps an http.ResponseWriter
+// and a flate.Writer to provide deflate compression for the response.
 type deflateResponseWriter struct {
 	Writer *flate.Writer
 	http.ResponseWriter
