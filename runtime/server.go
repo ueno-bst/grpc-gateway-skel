@@ -5,16 +5,28 @@ import (
 	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"io"
 	"net"
 	"net/http"
 )
 
-type GatewayHandler func(mux http.Handler) http.Handler
+type GatewayHandler func(h http.Handler, o *GatewayOption) http.Handler
 
 type GatewayEndpoint func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error
+
+type LogInfo struct {
+	access *string
+	error  *string
+}
+
+type LogWriter struct {
+	access *io.Writer
+	error  *io.Writer
+}
 
 type PathHandler struct {
 	method  string
@@ -63,6 +75,8 @@ type GatewayOption struct {
 	paths     []PathHandler
 	silent    bool
 	ctx       *context.Context
+	logs      LogInfo
+	logger    *logrus.Logger
 }
 
 type GatewayOptionFunc func(*GatewayOption)
@@ -81,6 +95,7 @@ func NewGateway(opts ...GatewayOptionFunc) GatewayOption {
 		handlers:  []GatewayHandler{},
 		paths:     []PathHandler{},
 		silent:    false,
+		logs:      LogInfo{},
 	}
 
 	for _, opt := range opts {
@@ -187,14 +202,16 @@ func WithHandler(handlers ...GatewayHandler) GatewayOptionFunc {
 //	)
 func WithCORS(option ...handlers.CORSOption) GatewayOptionFunc {
 	return func(opt *GatewayOption) {
-		opt.handlers = append(opt.handlers, handlers.CORS(option...))
+		opt.handlers = append(opt.handlers, func(h http.Handler, _ *GatewayOption) http.Handler {
+			return handlers.CORS(option...)(h)
+		})
 	}
 }
 
 func (o *GatewayOption) attachHandler(mux http.Handler) http.Handler {
 	if o.handlers != nil {
 		for _, handler := range o.handlers {
-			mux = handler(mux)
+			mux = handler(mux, o)
 		}
 	}
 
@@ -238,6 +255,10 @@ func (o *GatewayOption) attachPathHandle(mux *runtime.ServeMux) error {
 func (o *GatewayOption) Start() error {
 	tls := o.tls
 
+	if err := o.initLog(); err != nil {
+		return err
+	}
+
 	host, err := o.server.ToString()
 
 	if err != nil {
@@ -248,7 +269,7 @@ func (o *GatewayOption) Start() error {
 	ctx, cancel := context.WithCancel(ctx)
 
 	defer func() {
-		fmt.Printf("Gateway server stopping on %s\n", host)
+		o.logger.Debugf("Gateway server stopping on %s\n", host)
 		cancel()
 	}()
 
@@ -284,7 +305,8 @@ func (o *GatewayOption) Start() error {
 		return err
 	}
 
-	fmt.Printf("Gateway server starting on %s\n", host)
+	o.logger.Debugf("Gateway server starting on %s\n", host)
+
 	if tls != nil {
 		return http.ListenAndServeTLS(host, tls.cert, tls.key, handler)
 	}
