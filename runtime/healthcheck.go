@@ -69,6 +69,8 @@ func StatusCheckPathHandle(w http.ResponseWriter, _ *http.Request, _ map[string]
 		RequestCount: 0,
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	err := json.NewEncoder(w).Encode(response)
 
 	if err != nil {
