@@ -1,9 +1,9 @@
 package runtime
 
 import (
+	"compress/flate"
 	"compress/gzip"
 	"github.com/andybalholm/brotli"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
@@ -34,15 +34,15 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 // to compress the response. It defers the closing of the writer and wraps the original
 // ResponseWriter with a gzipResponseWriter to intercept and compress the response's content.
 // Finally, it calls ServeHTTP on the wrapped handler with the gzipResponseWriter and the original request.
-func GzipCompressHandler(handler http.Handler) http.Handler {
+func GzipCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if ok := existContentEncoding(w); ok {
-			handler.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 			return
 		}
 
 		if ok := withinAcceptEncoding(r, "gzip"); !ok {
-			handler.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 			return
 		}
 
@@ -51,12 +51,12 @@ func GzipCompressHandler(handler http.Handler) http.Handler {
 
 		defer func() {
 			if err := writer.Close(); err != nil {
-				logrus.Errorf("Error closing gzip writer: %v", err)
+				o.logger.Errorf("Error closing gzip writer: %v", err)
 			}
 		}()
 
 		wo := &gzipResponseWriter{Writer: writer, ResponseWriter: w}
-		handler.ServeHTTP(wo, r)
+		h.ServeHTTP(wo, r)
 	})
 }
 
@@ -70,15 +70,15 @@ func GzipCompressHandler(handler http.Handler) http.Handler {
 // to compress the response. It defers the closing of the writer and wraps the original
 // ResponseWriter with a brotliResponseWriter to intercept and compress the response's content.
 // Finally, it calls ServeHTTP on the wrapped handler with the brotliResponseWriter and the original request.
-func BrotliCompressHandler(handler http.Handler) http.Handler {
+func BrotliCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if ok := existContentEncoding(w); ok {
-			handler.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 			return
 		}
 
 		if ok := withinAcceptEncoding(r, "br"); !ok {
-			handler.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 			return
 		}
 
@@ -87,12 +87,42 @@ func BrotliCompressHandler(handler http.Handler) http.Handler {
 
 		defer func() {
 			if err := writer.Close(); err != nil {
-				logrus.Errorf("Error closing brotli writer: %v", err)
+				o.logger.Errorf("Error closing brotli writer: %v", err)
 			}
 		}()
 
 		wo := &brotliResponseWriter{Writer: writer, ResponseWriter: w}
-		handler.ServeHTTP(wo, r)
+		h.ServeHTTP(wo, r)
+	})
+}
+
+func DeflateCompressHandler(h http.Handler, o *GatewayOption) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ok := existContentEncoding(w); ok {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		if ok := withinAcceptEncoding(r, "deflate"); !ok {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Encoding", "deflate")
+		writer, err := flate.NewWriter(w, flate.BestCompression)
+
+		if err != nil {
+			o.logger.Errorf("Error creating flate writer: %v", err)
+		}
+
+		defer func() {
+			if err := writer.Close(); err != nil {
+				o.logger.Errorf("Error closing flate writer: %v", err)
+			}
+		}()
+
+		wo := &deflateResponseWriter{Writer: writer, ResponseWriter: w}
+		h.ServeHTTP(wo, r)
 	})
 }
 
@@ -109,6 +139,15 @@ type brotliResponseWriter struct {
 // Write writes the given byte slice to the brotliResponseWriter's brotli.Writer.
 // It returns the number of bytes written and any error that occurred during writing.
 func (w *brotliResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+type deflateResponseWriter struct {
+	Writer *flate.Writer
+	http.ResponseWriter
+}
+
+func (w *deflateResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
