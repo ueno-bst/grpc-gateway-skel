@@ -214,7 +214,8 @@ func WithCORS(option ...handlers.CORSOption) GatewayOptionFunc {
 
 func (o *GatewayOption) attachHandler(mux http.Handler) http.Handler {
 	if o.handlers != nil {
-		for _, handler := range o.handlers {
+		for i := len(o.handlers) - 1; i >= 0; i-- {
+			handler := o.handlers[i]
 			mux = handler(mux, o)
 		}
 	}
