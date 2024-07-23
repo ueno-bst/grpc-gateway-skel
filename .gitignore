@@ -1,4 +1,6 @@
 .idea/
 .vscode/
+*.log
 qodana.yaml
 node_modules/
+examples/grpc

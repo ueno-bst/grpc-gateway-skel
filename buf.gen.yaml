@@ -1,0 +1,17 @@
+version: v2
+plugins:
+  # Generate : Golang Protocol Buffer Message Models
+  - remote: buf.build/protocolbuffers/go:v1.33.0
+    out: ./examples/grpc
+    opt:
+      - paths=source_relative
+  # Generate: Golang GRPC Gateway (RestAPI->GRPC) Interface
+  - remote: buf.build/grpc-ecosystem/gateway:v2.19.1
+    out: ./examples/grpc
+    opt:
+      - paths=source_relative
+  # Generate : Golang GRPC Server Interface
+  - remote: buf.build/grpc/go:v1.3.0
+    out: ./examples/grpc
+    opt:
+      - paths=source_relative

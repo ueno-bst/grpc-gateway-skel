@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package skelton.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/ueno-bst/grpc-gateway-skel/examples/grpc/skelton/v1";
+
+message HeaderRequest {}
+
+message HeaderResponse {
+  message Value {
+    repeated string value = 1;
+  }
+
+  map<string, Value> headers = 1;
+}
+
+service HelloWorldService {
+  rpc Header(HeaderRequest) returns (HeaderResponse) {
+    option (google.api.http) = {get: '/hello'};
+  }
+}
