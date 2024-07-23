@@ -2,12 +2,18 @@ package main
 
 import (
 	"github.com/gorilla/handlers"
+	gw "github.com/ueno-bst/grpc-gateway-skel/examples/grpc/skelton/v1"
 	"github.com/ueno-bst/grpc-gateway-skel/runtime"
 	"net/http"
 )
 
 func main() {
 	server, err := runtime.NewGateway(
+		runtime.WithServer("0.0.0.0", 8081),
+		runtime.WithBackend("0.0.0.0", 8080),
+		runtime.WithEndpoint(
+			gw.RegisterHelloWorldServiceHandlerFromEndpoint,
+		),
 		runtime.WithHealthCheckPathHandle("/ping/heartbeat"),
 		runtime.WithStatusPathHandle("/ping/status"),
 		runtime.WithCORS(
@@ -17,13 +23,17 @@ func main() {
 			handlers.AllowedHeaders([]string{"Authorization", "Content-Type", "Accept-Encoding", "Accept"}),
 			handlers.MaxAge(300),
 		),
-		//runtime.WithAccessLogOutput("access.log"),
-		//runtime.WithErrorOutput("error.log"),
+		runtime.WithMetadata(
+			runtime.PassThrowMeta([]string{"Cookie"}, runtime.RequestMeta),
+			runtime.DeleteMeta([]string{"GRPC-Metadata-*"}, runtime.ResponseMeta),
+		),
+		runtime.WithAccessLogOutput("access.log"),
+		runtime.WithErrorOutput("error.log"),
 		runtime.WithHandler(
 			runtime.CommonLogHandler,
-			runtime.DeflateCompressHandler,
-			runtime.GzipCompressHandler,
 			runtime.BrotliCompressHandler,
+			//runtime.GzipCompressHandler,
+			//runtime.DeflateCompressHandler,
 		),
 	)
 

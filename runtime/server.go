@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"io"
 	"net"
 	"net/http"
@@ -71,7 +72,9 @@ type GatewayOption struct {
 	backend   ServerInfo
 	endpoints []GatewayEndpoint
 	handlers  []GatewayHandler
+	muxOpts   []runtime.ServeMuxOption
 	paths     []PathHandler
+	metas     metadataInfo
 	silent    bool
 	ctx       *context.Context
 	logs      LogInfo
@@ -93,6 +96,7 @@ func NewGateway(opts ...GatewayOptionFunc) (*GatewayOption, error) {
 		backend:   ServerInfo{"127.0.0.1", 8080},
 		endpoints: []GatewayEndpoint{},
 		handlers:  []GatewayHandler{},
+		muxOpts:   []runtime.ServeMuxOption{},
 		paths:     []PathHandler{},
 		silent:    false,
 		logs:      LogInfo{},
@@ -254,6 +258,18 @@ func (o *GatewayOption) attachPathHandle(mux *runtime.ServeMux) error {
 	return nil
 }
 
+func ndCibtext(ctx context.Context, req *http.Request) metadata.MD {
+	md := make(metadata.MD)
+
+	if t := req.Header.Get("x-test"); len(t) > 0 {
+		md["x-test"] = []string{t}
+	}
+
+	ctx = metadata.NewIncomingContext(ctx, md)
+
+	return md
+}
+
 func (o *GatewayOption) run() error {
 	tls := o.tls
 
@@ -269,7 +285,7 @@ func (o *GatewayOption) run() error {
 
 	// Register gRPC server backend
 	// Note: Make sure the gRPC server is running properly and accessible
-	mux := runtime.NewServeMux()
+	mux := runtime.NewServeMux(o.muxOpts...)
 
 	if err := o.attachPathHandle(mux); err != nil {
 		return err
