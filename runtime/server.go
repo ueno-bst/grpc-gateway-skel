@@ -7,6 +7,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -73,6 +74,7 @@ type GatewayOption struct {
 	endpoints []GatewayEndpoint
 	handlers  []GatewayHandler
 	muxOpts   []runtime.ServeMuxOption
+	errors    map[codes.Code]ErrorHandleCallback
 	paths     []PathHandler
 	metas     metadataInfo
 	silent    bool
@@ -98,6 +100,7 @@ func NewGateway(opts ...GatewayOptionFunc) (*GatewayOption, error) {
 		handlers:  []GatewayHandler{},
 		muxOpts:   []runtime.ServeMuxOption{},
 		paths:     []PathHandler{},
+		errors:    make(map[codes.Code]ErrorHandleCallback),
 		silent:    false,
 		logs:      LogInfo{},
 	}

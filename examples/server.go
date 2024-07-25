@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"github.com/gorilla/handlers"
+	runtime2 "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	gw "github.com/ueno-bst/grpc-gateway-skel/examples/grpc/skelton/v1"
 	"github.com/ueno-bst/grpc-gateway-skel/runtime"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"net/http"
 )
 
@@ -31,10 +36,19 @@ func main() {
 		runtime.WithErrorOutput("error.log"),
 		runtime.WithHandler(
 			runtime.CommonLogHandler,
+			runtime.GzipCompressHandler,
 			runtime.BrotliCompressHandler,
-			//runtime.GzipCompressHandler,
 			//runtime.DeflateCompressHandler,
 		),
+		runtime.WithErrorHandler(
+			runtime.ErrorHandle(codes.NotFound, func(ctx context.Context, mux *runtime2.ServeMux, w http.ResponseWriter, r *http.Request, s *status.Status) proto.Message {
+				res := gw.ErrorResponse{
+					Message: "messagesas",
+					Random:  3232,
+				}
+
+				return &res
+			})),
 	)
 
 	if err != nil {
