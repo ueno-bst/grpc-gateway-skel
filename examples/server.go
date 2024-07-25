@@ -8,7 +8,6 @@ import (
 	"github.com/ueno-bst/grpc-gateway-skel/runtime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"net/http"
 )
 
@@ -41,13 +40,17 @@ func main() {
 			//runtime.DeflateCompressHandler,
 		),
 		runtime.WithErrorHandler(
-			runtime.ErrorHandle(codes.NotFound, func(ctx context.Context, mux *runtime2.ServeMux, w http.ResponseWriter, r *http.Request, s *status.Status) proto.Message {
-				res := gw.ErrorResponse{
-					Message: "messagesas",
-					Random:  3232,
+			runtime.ErrorHandle(codes.NotFound, func(ctx context.Context, mux *runtime2.ServeMux, w http.ResponseWriter, r *http.Request, s *status.Status) *runtime.ErrorResult {
+				result := runtime.ErrorResult{
+					Message: &gw.ErrorResponse{
+						Message: "messagesas",
+						Random:  3232,
+					},
 				}
 
-				return &res
+				result.HttpStatus(http.StatusUnprocessableEntity)
+
+				return &result
 			})),
 	)
 

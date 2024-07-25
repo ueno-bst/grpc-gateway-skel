@@ -11,7 +11,19 @@ import (
 	"net/http"
 )
 
-type ErrorHandleCallback = func(ctx context.Context, mux *runtime.ServeMux, w http.ResponseWriter, r *http.Request, s *status.Status) proto.Message
+type ErrorHandleCallback = func(ctx context.Context, mux *runtime.ServeMux, w http.ResponseWriter, r *http.Request, s *status.Status) *ErrorResult
+
+type ErrorResult struct {
+	// 応答したいHTTPStatusコード
+	status *int
+	// 応答ボディ
+	Message proto.Message
+}
+
+func (e *ErrorResult) HttpStatus(status int) ErrorResult {
+	e.status = &status
+	return *e
+}
 
 func WithErrorHandler(handles ...ErrorHandleReturn) GatewayOptionFunc {
 	return func(opt *GatewayOption) {
@@ -46,7 +58,7 @@ func errorCapture(opt GatewayOption) runtime.ServeMuxOption {
 				contentType := marshal.ContentType(r)
 				w.Header().Set("Content-Type", contentType)
 
-				buf, err := marshal.Marshal(r)
+				buf, err := marshal.Marshal(r.Message)
 				if err != nil {
 					grpclog.Errorf("Failed to marshal error message %q: %v", s, err)
 					w.WriteHeader(http.StatusInternalServerError)
@@ -56,7 +68,11 @@ func errorCapture(opt GatewayOption) runtime.ServeMuxOption {
 					return
 				}
 
-				w.WriteHeader(runtime.HTTPStatusFromCode(s.Code()))
+				if r.status == nil {
+					w.WriteHeader(runtime.HTTPStatusFromCode(s.Code()))
+				} else {
+					w.WriteHeader(*r.status)
+				}
 
 				if _, err := w.Write(buf); err != nil {
 					grpclog.Errorf("Failed to write response: %v", err)
